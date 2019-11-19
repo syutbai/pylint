@@ -1434,7 +1434,7 @@ class ArgumentPreprocessingError(Exception):
     """Raised if an error occurs during argument preprocessing."""
 
 
-def preprocess_options(args, search_for):
+def preprocess_options(args, search_for, shortform_map):
     """look for some options (keys of <search_for>) which have to be processed
     before others
 
@@ -1444,13 +1444,32 @@ def preprocess_options(args, search_for):
     i = 0
     while i < len(args):
         arg = args[i]
+        parse_flag = False
         if arg.startswith("--"):
+            parse_flag = True
             try:
                 option, val = arg[2:].split("=", 1)
             except ValueError:
                 option, val = arg[2:], None
+            option_long = option
+        elif arg.startswith("-"):
+            parse_flag = True
+            option = arg[1:2]
             try:
-                cb, takearg = search_for[option]
+                option_long = shortform_map[option]
+            except KeyError:
+                i += 1
+                continue
+            try:
+                val = arg[2:]
+                if val == "":
+                    val = None
+            except ValueError:
+                val = None
+
+        if parse_flag is True:
+            try:
+                cb, takearg = search_for[option_long]
             except KeyError:
                 i += 1
             else:
@@ -1462,9 +1481,9 @@ def preprocess_options(args, search_for):
                     val = args[i]
                     del args[i]
                 elif not takearg and val is not None:
-                    msg = "Option %s doesn't expects a value" % option
+                    msg = "Option %s doesn't expect a value" % option
                     raise ArgumentPreprocessingError(msg)
-                cb(option, val)
+                cb(option_long, val)
         else:
             i += 1
 
@@ -1514,6 +1533,12 @@ group are mutually exclusive.",
         self._rcfile = None
         self._plugins = []
         self.verbose = None
+
+        # Match the definitions in self.linter
+        shortform_map = {
+            "E": "errors-only",
+            "v": "verbose",
+        }
         try:
             preprocess_options(
                 args,
@@ -1524,6 +1549,7 @@ group are mutually exclusive.",
                     "load-plugins": (self.cb_add_plugins, True),
                     "verbose": (self.cb_verbose_mode, False),
                 },
+                shortform_map,
             )
         except ArgumentPreprocessingError as ex:
             print(ex, file=sys.stderr)

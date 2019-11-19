@@ -722,25 +722,38 @@ class TestPreprocessOptions(object):
         preprocess_options(
             ["--foo", "--bar=baz", "--qu=ux"],
             {"foo": (self._callback, False), "qu": (self._callback, True)},
+            {},
         )
         assert [("foo", None), ("qu", "ux")] == self.args
 
     def test_value_space(self):
         self.args = []
-        preprocess_options(["--qu", "ux"], {"qu": (self._callback, True)})
+        preprocess_options(["--qu", "ux"], {"qu": (self._callback, True)}, {})
         assert [("qu", "ux")] == self.args
 
     def test_error_missing_expected_value(self):
         with pytest.raises(ArgumentPreprocessingError):
-            preprocess_options(["--foo", "--bar", "--qu=ux"], {"bar": (None, True)})
+            preprocess_options(["--foo", "--bar", "--qu=ux"], {"bar": (None, True)}, {})
         with pytest.raises(ArgumentPreprocessingError):
-            preprocess_options(["--foo", "--bar"], {"bar": (None, True)})
+            preprocess_options(["--foo", "--bar"], {"bar": (None, True)}, {})
 
     def test_error_unexpected_value(self):
         with pytest.raises(ArgumentPreprocessingError):
             preprocess_options(
-                ["--foo", "--bar=spam", "--qu=ux"], {"bar": (None, False)}
+                ["--foo", "--bar=spam", "--qu=ux"], {"bar": (None, False)}, {}
             )
+
+    def test_short_in_map(self):
+        self.args = []
+        preprocess_options(
+            ["-v"], {"verbose": (self._callback, False)}, {"v": "verbose"}
+        )
+        assert [("verbose", None)] == self.args
+
+    def test_short_not_in_map(self):
+        self.args = []
+        preprocess_options(["-v"], {"verbose": (self._callback, False)}, {})
+        assert [] == self.args
 
 
 class _CustomPyLinter(PyLinter):
